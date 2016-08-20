@@ -85,9 +85,13 @@ func (m *Micro) RegisterQueueSubscribe() {
 	}
 }
 
-type HttpProtoError interface {
-	StatusCode() int32
+type HttpError interface {
+	Code() int
 	Error() string
+}
+
+type ProtoError interface {
+	StatusCode() int32
 	ProtoMessage()
 }
 
@@ -101,10 +105,12 @@ func (m *Micro) onError(ctx *Context, err error) {
 	}
 
 	switch werr := err.(type) {
-	case HttpProtoError:
+	case ProtoError:
 		m.Publish(ctx.Reply, werr)
+	case HttpError:
+		m.Publish(ctx.Reply, errors.New(int32(werr.Code()), werr.Error()))
 	default:
-		m.Publish(ctx.Reply, errors.New(500, err.Error()))
+		m.Publish(ctx.Reply, errors.New(500, werr.Error()))
 	}
 }
 
