@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/nats-io/nats"
 	"github.com/plimble/micro"
@@ -55,8 +54,6 @@ func main() {
 
 	m.RegisterSubscribe()
 	m.RegisterQueueSubscribe()
-
-	time.Sleep(1 * time.Second)
 
 	req := &proto.HelloReq{
 		Name: "test",

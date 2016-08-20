@@ -184,7 +184,9 @@ func (m *Micro) Request(subject string, req interface{}, res interface{}, timeou
 
 	errProto := &errors.Errors{}
 	if err := m.enc.Decode(msg.Data, errProto); err == nil {
-		return errProto
+		if errProto.Error() != "" {
+			return errProto
+		}
 	}
 
 	return m.enc.Decode(msg.Data, res)
