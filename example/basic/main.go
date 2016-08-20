@@ -66,4 +66,16 @@ func main() {
 	}
 
 	fmt.Println(res.Result)
+
+	req = &proto.HelloReq{
+		Name: "test",
+	}
+	res = &proto.HelloRes{}
+
+	err = m.Request("test", req, res, micro.DefaultTimeout)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(res.Result)
 }

@@ -73,4 +73,14 @@ func main() {
 	}
 
 	fmt.Println(res.Result)
+
+	req = &SubReq{2, 2}
+	res = &SubRes{}
+
+	err = m.Request("example.Sub", req, res, micro.DefaultTimeout)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println(res.Result)
 }
