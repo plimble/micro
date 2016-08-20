@@ -194,3 +194,7 @@ func (m *Micro) Request(subject string, req interface{}, res interface{}, timeou
 
 	return m.enc.Decode(msg.Data, res)
 }
+
+func (m *Micro) Close() {
+	m.c.Close()
+}
