@@ -26,6 +26,7 @@ type Encoder interface {
 type Client interface {
 	Publish(subject string, v interface{}) error
 	Request(subject string, req interface{}, res interface{}, timeout time.Duration) error
+	Close()
 }
 
 type Micro struct {
