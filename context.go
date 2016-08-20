@@ -12,7 +12,7 @@ type Context struct {
 	Encoder
 	pos int8
 	mw  []Handler
-	c   *nats.Conn
+	c   INats
 }
 
 func (c *Context) Next() error {

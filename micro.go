@@ -24,7 +24,7 @@ type Encoder interface {
 
 type Micro struct {
 	ctxPool sync.Pool
-	c       *nats.Conn
+	c       INats
 	mw      []Handler
 	enc     Encoder
 	sub     map[string][]Handler
