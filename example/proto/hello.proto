@@ -1,5 +1,9 @@
 syntax = "proto3";
 
+service HelloService {
+    rpc Hello(HelloReq) returns (HelloRes) {}
+}
+
 message HelloReq {
     string name = 1;
 }

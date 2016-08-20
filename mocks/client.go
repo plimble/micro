@@ -9,6 +9,11 @@ type Client struct {
 	mock.Mock
 }
 
+// Close provides a mock function with given fields:
+func (_m *Client) Close() {
+	_m.Called()
+}
+
 // Publish provides a mock function with given fields: subject, v
 func (_m *Client) Publish(subject string, v interface{}) error {
 	ret := _m.Called(subject, v)

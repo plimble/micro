@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/nats-io/nats"
@@ -9,6 +8,16 @@ import (
 	"github.com/plimble/micro/encode/protobuf"
 	proto "github.com/plimble/micro/example/proto"
 )
+
+// protoc --go_out=plugins=micro:. *.proto
+type helloService struct{}
+
+func (s *helloService) Hello(ctx *micro.Context, req *proto.HelloReq, res *proto.HelloRes) error {
+	fmt.Println("start test", ctx.Reply)
+	res.Result = "Hello " + req.Name
+
+	return nil
+}
 
 func main() {
 	conn, err := nats.Connect("nats://localhost:4222")
@@ -34,33 +43,23 @@ func main() {
 		return err
 	})
 
-	m.QueueSubscribe("test", "q", func(ctx *micro.Context) error {
-		fmt.Println("start test", ctx.Reply)
-		req := &proto.HelloReq{}
-		if err := ctx.Decode(ctx.Data, req); err != nil {
-			return err
-		}
+	hs := &helloService{}
 
-		if req.Name == "error" {
-			return errors.New("error name")
-		}
-
-		res := &proto.HelloRes{
-			Result: "Hello " + req.Name,
-		}
-
-		return ctx.Publish(ctx.Reply, res)
-	})
+	qs := proto.NewHelloServiceQueueSubscribe("example", m)
+	qs.Hello(hs.Hello)
 
 	m.RegisterSubscribe()
 	m.RegisterQueueSubscribe()
 
+	// Client
+
+	client := proto.NewHelloServiceClient("example", m)
+
 	req := &proto.HelloReq{
 		Name: "test",
 	}
-	res := &proto.HelloRes{}
 
-	err = m.Request("test", req, res, micro.DefaultTimeout)
+	res, err := client.HelloRequest(req)
 	if err != nil {
 		panic(err)
 	}
@@ -70,9 +69,8 @@ func main() {
 	req = &proto.HelloReq{
 		Name: "test",
 	}
-	res = &proto.HelloRes{}
 
-	err = m.Request("test", req, res, micro.DefaultTimeout)
+	res, err = client.HelloRequest(req)
 	if err != nil {
 		panic(err)
 	}

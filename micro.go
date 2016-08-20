@@ -139,7 +139,7 @@ func (m *Micro) acquireCtx(msg *nats.Msg, hs []Handler) *Context {
 			Msg:     msg,
 			Encoder: m.enc,
 			mw:      hs,
-			c:       m.c,
+			Client:  m,
 			pos:     -1,
 		}
 	} else {
@@ -147,7 +147,7 @@ func (m *Micro) acquireCtx(msg *nats.Msg, hs []Handler) *Context {
 		ctx.Msg = msg
 		ctx.Encoder = m.enc
 		ctx.mw = hs
-		ctx.c = m.c
+		ctx.Client = m
 		ctx.pos = -1
 	}
 
