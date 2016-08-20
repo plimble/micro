@@ -22,6 +22,12 @@ type Encoder interface {
 	Decode(data []byte, vPtr interface{}) error
 }
 
+//go:generate mockery -name Client -case underscore
+type Client interface {
+	Publish(subject string, v interface{}) error
+	Request(subject string, req interface{}, res interface{}, timeout time.Duration) error
+}
+
 type Micro struct {
 	ctxPool sync.Pool
 	c       INats
