@@ -67,6 +67,7 @@ func (m *Micro) RegisterSubscribe() {
 			if err := ctx.Next(); err != nil {
 				m.onError(ctx, err)
 			}
+			m.ctxPool.Put(ctx)
 		})
 	}
 }
@@ -79,6 +80,7 @@ func (m *Micro) RegisterQueueSubscribe() {
 			if err := ctx.Next(); err != nil {
 				m.onError(ctx, err)
 			}
+			m.ctxPool.Put(ctx)
 		})
 	}
 }
