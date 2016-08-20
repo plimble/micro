@@ -29,7 +29,7 @@ func main() {
 		return nil
 	})
 
-	m.Subscribe("test", func(ctx *micro.Context) error {
+	m.QueueSubscribe("test", "q", func(ctx *micro.Context) error {
 		fmt.Println("start test")
 		req := &proto.HelloReq{}
 		if err := ctx.Decode(ctx.Data, req); err != nil {
@@ -44,6 +44,7 @@ func main() {
 	})
 
 	m.RegisterSubscribe()
+	m.RegisterQueueSubscribe()
 
 	time.Sleep(1 * time.Second)
 

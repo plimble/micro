@@ -67,7 +67,7 @@ func (m *Micro) RegisterSubscribe() {
 }
 
 func (m *Micro) RegisterQueueSubscribe() {
-	for qsubj, hs := range m.sub {
+	for qsubj, hs := range m.qsub {
 		subj := strings.Split(qsubj, "|")
 		m.c.QueueSubscribe(subj[0], subj[1], func(msg *nats.Msg) {
 			ctx := m.acquireCtx(msg, hs)
