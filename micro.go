@@ -1,7 +1,6 @@
 package micro
 
 import (
-	"log"
 	"os"
 	"os/signal"
 	"strings"
@@ -13,10 +12,11 @@ import (
 )
 
 var (
-	DefaultTimeout = 1 * time.Second
+	DefaultTimeout = 2 * time.Second
 )
 
 type Handler func(ctx *Context) error
+type ErrorHandler func(ctx *Context, err error) error
 type Encoder interface {
 	Encode(v interface{}) ([]byte, error)
 	Decode(data []byte, vPtr interface{}) error
@@ -29,6 +29,7 @@ type Micro struct {
 	enc     Encoder
 	sub     map[string][]Handler
 	qsub    map[string][]Handler
+	herr    ErrorHandler
 }
 
 func New(c *nats.Conn, enc Encoder) *Micro {
@@ -43,6 +44,10 @@ func New(c *nats.Conn, enc Encoder) *Micro {
 
 func (m *Micro) Use(h Handler) {
 	m.mw = append(m.mw, h)
+}
+
+func (m *Micro) HandleError(h ErrorHandler) {
+	m.herr = h
 }
 
 func (m *Micro) Subscribe(subject string, hs ...Handler) {
@@ -60,7 +65,7 @@ func (m *Micro) RegisterSubscribe() {
 		m.c.Subscribe(subj, func(msg *nats.Msg) {
 			ctx := m.acquireCtx(msg, hs)
 			if err := ctx.Next(); err != nil {
-				log.Println(err)
+				m.onError(ctx, err)
 			}
 		})
 	}
@@ -72,9 +77,32 @@ func (m *Micro) RegisterQueueSubscribe() {
 		m.c.QueueSubscribe(subj[0], subj[1], func(msg *nats.Msg) {
 			ctx := m.acquireCtx(msg, hs)
 			if err := ctx.Next(); err != nil {
-				log.Println(err)
+				m.onError(ctx, err)
 			}
 		})
+	}
+}
+
+type HttpProtoError interface {
+	StatusCode() int32
+	Error() string
+	ProtoMessage()
+}
+
+func (m *Micro) onError(ctx *Context, err error) {
+	if ctx.Reply == "" {
+		return
+	}
+
+	if m.herr != nil {
+		err = m.herr(ctx, err)
+	}
+
+	switch werr := err.(type) {
+	case HttpProtoError:
+		m.Publish(ctx.Reply, werr)
+	default:
+		m.Publish(ctx.Reply, errors.New(500, err.Error()))
 	}
 }
 
@@ -97,12 +125,12 @@ func (m *Micro) acquireCtx(msg *nats.Msg, hs []Handler) *Context {
 			Encoder: m.enc,
 			mw:      hs,
 			c:       m.c,
-			pos:     0,
+			pos:     -1,
 		}
 	} else {
 		ctx = v.(*Context)
 		ctx.mw = hs
-		ctx.pos = 0
+		ctx.pos = -1
 	}
 
 	return ctx

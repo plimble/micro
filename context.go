@@ -10,7 +10,7 @@ import (
 type Context struct {
 	*nats.Msg
 	Encoder
-	pos uint8
+	pos int8
 	mw  []Handler
 	c   *nats.Conn
 }
@@ -18,10 +18,10 @@ type Context struct {
 func (c *Context) Next() error {
 	//set position to the next
 	c.pos++
-	midLen := uint8(len(c.mw))
+	midLen := int8(len(c.mw))
 	//run the next
-	if c.pos-1 < midLen {
-		return c.mw[c.pos-1](c)
+	if c.pos < midLen {
+		return c.mw[c.pos](c)
 	}
 
 	return nil

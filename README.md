@@ -8,6 +8,7 @@ Microservice with nats and protobuf
 package main
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -30,17 +31,26 @@ func main() {
 
 	m.Use(func(ctx *micro.Context) error {
 		fmt.Println("start mid")
-		ctx.Next()
+		err := ctx.Next()
 		fmt.Println("end mid")
 
-		return nil
+		return err
+	})
+
+	m.HandleError(func(ctx *micro.Context, err error) error {
+		fmt.Println(err)
+		return err
 	})
 
 	m.QueueSubscribe("test", "q", func(ctx *micro.Context) error {
-		fmt.Println("start test")
+		fmt.Println("start test", ctx.Reply)
 		req := &proto.HelloReq{}
 		if err := ctx.Decode(ctx.Data, req); err != nil {
 			return err
+		}
+
+		if req.Name == "error" {
+			return errors.New("error name")
 		}
 
 		res := &proto.HelloRes{
@@ -56,7 +66,7 @@ func main() {
 	time.Sleep(1 * time.Second)
 
 	req := &proto.HelloReq{
-		Name: "Tester",
+		Name: "test",
 	}
 	res := &proto.HelloRes{}
 
