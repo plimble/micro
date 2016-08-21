@@ -28,13 +28,24 @@ type Client interface {
 	Close()
 }
 
+type subHandler struct {
+	subject  string
+	handlers []Handler
+}
+
+type queueSubHandler struct {
+	subject  string
+	group    string
+	handlers []Handler
+}
+
 type Micro struct {
 	ctxPool sync.Pool
 	c       INats
 	mw      []Handler
 	enc     Encoder
-	sub     map[string][]Handler
-	qsub    map[string][]Handler
+	sub     map[string]subHandler
+	qsub    map[string]queueSubHandler
 	herr    ErrorHandler
 }
 
@@ -43,8 +54,8 @@ func New(c *nats.Conn, enc Encoder) *Micro {
 		c:    c,
 		mw:   []Handler{},
 		enc:  enc,
-		sub:  make(map[string][]Handler),
-		qsub: make(map[string][]Handler),
+		sub:  make(map[string]subHandler),
+		qsub: make(map[string]queueSubHandler),
 	}
 }
 
@@ -57,19 +68,24 @@ func (m *Micro) HandleError(h ErrorHandler) {
 }
 
 func (m *Micro) Subscribe(subject string, hs ...Handler) {
-	newhs := joinMiddleware(m.mw, hs)
-	m.sub[subject] = newhs
+	m.sub[subject] = subHandler{
+		subject:  subject,
+		handlers: joinMiddleware(m.mw, hs),
+	}
 }
 
 func (m *Micro) QueueSubscribe(subject, group string, hs ...Handler) {
-	newhs := joinMiddleware(m.mw, hs)
-	m.qsub[subject] = newhs
+	m.qsub[subject] = queueSubHandler{
+		subject:  subject,
+		group:    group,
+		handlers: joinMiddleware(m.mw, hs),
+	}
 }
 
 func (m *Micro) RegisterSubscribe() {
-	for subj := range m.sub {
-		m.c.Subscribe(subj, func(msg *nats.Msg) {
-			ctx := m.acquireCtx(msg, m.sub[msg.Subject])
+	for _, h := range m.sub {
+		m.c.Subscribe(h.subject, func(msg *nats.Msg) {
+			ctx := m.acquireCtx(msg, m.sub[msg.Subject].handlers)
 			if err := ctx.Next(); err != nil {
 				m.onError(ctx, err)
 			}
@@ -79,9 +95,9 @@ func (m *Micro) RegisterSubscribe() {
 }
 
 func (m *Micro) RegisterQueueSubscribe() {
-	for qsubj := range m.qsub {
-		m.c.QueueSubscribe(qsubj, qsubj, func(msg *nats.Msg) {
-			ctx := m.acquireCtx(msg, m.qsub[msg.Subject])
+	for _, h := range m.qsub {
+		m.c.QueueSubscribe(h.subject, h.group, func(msg *nats.Msg) {
+			ctx := m.acquireCtx(msg, m.qsub[msg.Subject].handlers)
 			if err := ctx.Next(); err != nil {
 				m.onError(ctx, err)
 			}
