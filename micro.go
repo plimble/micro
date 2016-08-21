@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/nats-io/nats"
+	perrors "github.com/plimble/errors"
 	"github.com/plimble/micro/errors"
 )
 
@@ -125,7 +126,7 @@ func (m *Micro) onError(ctx *Context, err error) {
 		err = m.herr(ctx, err)
 	}
 
-	switch werr := err.(type) {
+	switch werr := perrors.Cause(err).(type) {
 	case ProtoError:
 		m.Publish(ctx.Reply, werr)
 	case HttpError:
