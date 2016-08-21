@@ -3,7 +3,6 @@ package micro
 import (
 	"os"
 	"os/signal"
-	"strings"
 	"sync"
 	"time"
 
@@ -64,13 +63,13 @@ func (m *Micro) Subscribe(subject string, hs ...Handler) {
 
 func (m *Micro) QueueSubscribe(subject, group string, hs ...Handler) {
 	newhs := joinMiddleware(m.mw, hs)
-	m.qsub[subject+"|"+group] = newhs
+	m.qsub[subject] = newhs
 }
 
 func (m *Micro) RegisterSubscribe() {
-	for subj, hs := range m.sub {
+	for subj := range m.sub {
 		m.c.Subscribe(subj, func(msg *nats.Msg) {
-			ctx := m.acquireCtx(msg, hs)
+			ctx := m.acquireCtx(msg, m.sub[msg.Subject])
 			if err := ctx.Next(); err != nil {
 				m.onError(ctx, err)
 			}
@@ -80,10 +79,9 @@ func (m *Micro) RegisterSubscribe() {
 }
 
 func (m *Micro) RegisterQueueSubscribe() {
-	for qsubj, hs := range m.qsub {
-		subj := strings.Split(qsubj, "|")
-		m.c.QueueSubscribe(subj[0], subj[1], func(msg *nats.Msg) {
-			ctx := m.acquireCtx(msg, hs)
+	for qsubj := range m.qsub {
+		m.c.QueueSubscribe(qsubj, qsubj, func(msg *nats.Msg) {
+			ctx := m.acquireCtx(msg, m.qsub[msg.Subject])
 			if err := ctx.Next(); err != nil {
 				m.onError(ctx, err)
 			}
