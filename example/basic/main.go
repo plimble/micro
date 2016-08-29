@@ -14,6 +14,7 @@ type helloService struct{}
 
 func (s *helloService) Hello(ctx *micro.Context, req *proto.HelloReq, res *proto.HelloRes) error {
 	fmt.Println("start test", ctx.Reply)
+	fmt.Println("header", ctx.Header.GetDefault("header1", "default"))
 	res.Result = "Hello " + req.Name
 
 	return nil
@@ -59,7 +60,9 @@ func main() {
 		Name: "test",
 	}
 
-	res, err := client.HelloRequest(req)
+	res, err := client.HelloRequest(req, micro.WithHeader(micro.Header{
+		"header1": "h1",
+	}))
 	if err != nil {
 		panic(err)
 	}

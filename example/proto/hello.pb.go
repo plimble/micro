@@ -61,8 +61,8 @@ func init() {
 // Client API for HelloService service
 
 type HelloServiceClient interface {
-	HelloRequest(req *HelloReq) (*HelloRes, error)
-	HelloPublish(req *HelloReq) error
+	HelloRequest(req *HelloReq, opts ...micro.ClientOption) (*HelloRes, error)
+	HelloPublish(req *HelloReq, opts ...micro.ClientOption) error
 }
 
 type helloServiceClient struct {
@@ -77,17 +77,17 @@ func NewHelloServiceClient(prefix string, c micro.Client) HelloServiceClient {
 	}
 }
 
-func (c *helloServiceClient) HelloRequest(req *HelloReq) (*HelloRes, error) {
+func (c *helloServiceClient) HelloRequest(req *HelloReq, opts ...micro.ClientOption) (*HelloRes, error) {
 	res := new(HelloRes)
-	err := c.c.Request(c.prefix+".Hello", req, res, micro.DefaultTimeout)
+	err := c.c.Request(c.prefix+".hello", req, res, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return res, nil
 }
 
-func (c *helloServiceClient) HelloPublish(req *HelloReq) error {
-	return c.c.Publish(c.prefix+".Hello", req)
+func (c *helloServiceClient) HelloPublish(req *HelloReq, opts ...micro.ClientOption) error {
+	return c.c.Publish(c.prefix+".hello", req, opts...)
 }
 
 // Server API for HelloService service
@@ -107,7 +107,7 @@ func NewHelloServiceQueueSubscribe(prefix string, m *micro.Micro) *HelloServiceQ
 }
 
 func (dq *HelloServiceQueueSubscribe) Hello(h HelloHandler) {
-	subj := dq.prefix + ".Hello"
+	subj := dq.prefix + ".hello"
 	dq.m.QueueSubscribe(subj, subj, func(ctx *micro.Context) error {
 		req := new(HelloReq)
 		if err := ctx.Decode(ctx.Data, req); err != nil {
@@ -140,7 +140,7 @@ func NewHelloServiceSubscribe(prefix string, m *micro.Micro) *HelloServiceSubscr
 }
 
 func (ds *HelloServiceSubscribe) Hello(h HelloHandler) {
-	subj := ds.prefix + ".Hello"
+	subj := ds.prefix + ".hello"
 	ds.m.Subscribe(subj, func(ctx *micro.Context) error {
 		req := new(HelloReq)
 		if err := ctx.Decode(ctx.Data, req); err != nil {

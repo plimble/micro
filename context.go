@@ -1,13 +1,14 @@
 package micro
 
-import "github.com/nats-io/nats"
-
 type Context struct {
-	*nats.Msg
 	Encoder
 	pos int8
 	mw  []Handler
 	Client
+	Header  Header
+	Data    []byte
+	Subject string
+	Reply   string
 }
 
 func (c *Context) Next() error {

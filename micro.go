@@ -4,15 +4,10 @@ import (
 	"os"
 	"os/signal"
 	"sync"
-	"time"
 
 	"github.com/nats-io/nats"
 	perrors "github.com/plimble/errors"
 	"github.com/plimble/micro/errors"
-)
-
-var (
-	DefaultTimeout = 2 * time.Second
 )
 
 type Handler func(ctx *Context) error
@@ -24,8 +19,8 @@ type Encoder interface {
 
 //go:generate mockery -name Client -case underscore
 type Client interface {
-	Publish(subject string, v interface{}) error
-	Request(subject string, req interface{}, res interface{}, timeout time.Duration) error
+	Publish(subject string, v interface{}, opts ...ClientOption) error
+	Request(subject string, req interface{}, res interface{}, opts ...ClientOption) error
 	Close()
 }
 
@@ -86,7 +81,10 @@ func (m *Micro) QueueSubscribe(subject, group string, hs ...Handler) {
 func (m *Micro) RegisterSubscribe() {
 	for _, h := range m.sub {
 		m.c.Subscribe(h.subject, func(msg *nats.Msg) {
-			ctx := m.acquireCtx(msg, m.sub[msg.Subject].handlers)
+			ms := &message{}
+			ms.UnmarshalMsg(msg.Data)
+
+			ctx := m.acquireCtx(msg, m.sub[msg.Subject].handlers, ms.Header, ms.Body, msg.Subject, msg.Reply)
 			if err := ctx.Next(); err != nil {
 				m.onError(ctx, err)
 			}
@@ -98,7 +96,10 @@ func (m *Micro) RegisterSubscribe() {
 func (m *Micro) RegisterQueueSubscribe() {
 	for _, h := range m.qsub {
 		m.c.QueueSubscribe(h.subject, h.group, func(msg *nats.Msg) {
-			ctx := m.acquireCtx(msg, m.qsub[msg.Subject].handlers)
+			ms := &message{}
+			ms.UnmarshalMsg(msg.Data)
+
+			ctx := m.acquireCtx(msg, m.qsub[msg.Subject].handlers, ms.Header, ms.Body, msg.Subject, msg.Reply)
 			if err := ctx.Next(); err != nil {
 				m.onError(ctx, err)
 			}
@@ -128,11 +129,11 @@ func (m *Micro) onError(ctx *Context, err error) {
 
 	switch werr := perrors.Cause(err).(type) {
 	case ProtoError:
-		m.Publish(ctx.Reply, werr)
+		m.Publish(ctx.Reply, werr, nil)
 	case HttpError:
-		m.Publish(ctx.Reply, errors.New(int32(werr.Code()), werr.Error()))
+		m.Publish(ctx.Reply, errors.New(int32(werr.Code()), werr.Error()), nil)
 	default:
-		m.Publish(ctx.Reply, errors.New(500, werr.Error()))
+		m.Publish(ctx.Reply, errors.New(500, werr.Error()), nil)
 	}
 }
 
@@ -146,12 +147,15 @@ func (m *Micro) Run() {
 	m.c.Close()
 }
 
-func (m *Micro) acquireCtx(msg *nats.Msg, hs []Handler) *Context {
+func (m *Micro) acquireCtx(msg *nats.Msg, hs []Handler, header Header, data []byte, subj, reply string) *Context {
 	v := m.ctxPool.Get()
 	var ctx *Context
 	if v == nil {
 		ctx = &Context{
-			Msg:     msg,
+			Header:  header,
+			Data:    data,
+			Subject: subj,
+			Reply:   reply,
 			Encoder: m.enc,
 			mw:      hs,
 			Client:  m,
@@ -159,7 +163,10 @@ func (m *Micro) acquireCtx(msg *nats.Msg, hs []Handler) *Context {
 		}
 	} else {
 		ctx = v.(*Context)
-		ctx.Msg = msg
+		ctx.Header = header
+		ctx.Data = data
+		ctx.Subject = subj
+		ctx.Reply = reply
 		ctx.Encoder = m.enc
 		ctx.mw = hs
 		ctx.Client = m
@@ -181,34 +188,55 @@ func joinMiddleware(middleware1 []Handler, middleware2 []Handler) []Handler {
 	return newMiddleware
 }
 
-func (m *Micro) Publish(subject string, v interface{}) error {
+func (m *Micro) Publish(subject string, v interface{}, opts ...ClientOption) error {
+	o := newOption()
+	o.setOptions(opts)
+
 	b, err := m.enc.Encode(v)
 	if err != nil {
 		return err
 	}
-	m.c.Publish(subject, b)
+
+	ms := &message{o.header, b}
+	mb, err := ms.MarshalMsg(nil)
+	if err != nil {
+		return err
+	}
+
+	m.c.Publish(subject, mb)
 	return nil
 }
 
-func (m *Micro) Request(subject string, req interface{}, res interface{}, timeout time.Duration) error {
+func (m *Micro) Request(subject string, req interface{}, res interface{}, opts ...ClientOption) error {
+	o := newOption()
+	o.setOptions(opts)
+
 	b, err := m.enc.Encode(req)
 	if err != nil {
 		return err
 	}
 
-	msg, err := m.c.Request(subject, b, timeout)
+	ms := &message{o.header, b}
+	mb, err := ms.MarshalMsg(nil)
 	if err != nil {
 		return err
 	}
 
+	msg, err := m.c.Request(subject, mb, o.timeout)
+	if err != nil {
+		return err
+	}
+
+	ms.UnmarshalMsg(msg.Data)
+
 	errProto := &errors.Errors{}
-	if err := m.enc.Decode(msg.Data, errProto); err == nil {
+	if err := m.enc.Decode(ms.Body, errProto); err == nil {
 		if errProto.Error() != "" {
 			return errProto
 		}
 	}
 
-	return m.enc.Decode(msg.Data, res)
+	return m.enc.Decode(ms.Body, res)
 }
 
 func (m *Micro) Close() {
