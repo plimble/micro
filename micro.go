@@ -259,7 +259,7 @@ func (m *Micro) Forward(subject string, req []byte, opts ...ClientOption) ([]byt
 	errProto := &errors.Errors{}
 	if err := m.enc.Decode(ms.Body, errProto); err == nil {
 		if errProto.Error() != "" {
-			return nil, errProto
+			return ms.Body, errProto
 		}
 	}
 
