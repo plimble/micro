@@ -239,6 +239,33 @@ func (m *Micro) Request(subject string, req interface{}, res interface{}, opts .
 	return m.enc.Decode(ms.Body, res)
 }
 
+func (m *Micro) Forward(subject string, req []byte, opts ...ClientOption) ([]byte, error) {
+	o := newOption()
+	o.setOptions(opts)
+
+	ms := &message{o.header, req}
+	mb, err := ms.MarshalMsg(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	msg, err := m.c.Request(subject, mb, o.timeout)
+	if err != nil {
+		return nil, err
+	}
+
+	ms.UnmarshalMsg(msg.Data)
+
+	errProto := &errors.Errors{}
+	if err := m.enc.Decode(ms.Body, errProto); err == nil {
+		if errProto.Error() != "" {
+			return nil, errProto
+		}
+	}
+
+	return ms.Body, nil
+}
+
 func (m *Micro) Close() {
 	m.c.Close()
 }
