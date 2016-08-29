@@ -46,8 +46,7 @@ func main() {
 
 	hs := &helloService{}
 
-	qs := proto.NewHelloServiceQueueSubscribe("example", m)
-	qs.Hello(hs.Hello)
+	proto.RegisterHelloService(m, "example", hs)
 
 	m.RegisterSubscribe()
 	m.RegisterQueueSubscribe()
