@@ -20,8 +20,10 @@ func newOption() *option {
 }
 
 func (o *option) setOptions(opts []ClientOption) {
-	for _, opt := range opts {
-		opt(o)
+	if opts != nil {
+		for _, opt := range opts {
+			opt(o)
+		}
 	}
 }
 
