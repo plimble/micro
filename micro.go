@@ -129,11 +129,11 @@ func (m *Micro) onError(ctx *Context, err error) {
 
 	switch werr := perrors.Cause(err).(type) {
 	case ProtoError:
-		m.Publish(ctx.Reply, werr, nil)
+		m.Publish(ctx.Reply, werr)
 	case HttpError:
-		m.Publish(ctx.Reply, errors.New(int32(werr.Code()), werr.Error()), nil)
+		m.Publish(ctx.Reply, errors.New(int32(werr.Code()), werr.Error()))
 	default:
-		m.Publish(ctx.Reply, errors.New(500, werr.Error()), nil)
+		m.Publish(ctx.Reply, errors.New(500, werr.Error()))
 	}
 }
 
