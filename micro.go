@@ -3,6 +3,7 @@ package micro
 import (
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 
 	"github.com/nats-io/nats"
@@ -39,6 +40,7 @@ type Micro struct {
 	ctxPool sync.Pool
 	c       INats
 	mw      []Handler
+	mwgroup map[string][]Handler
 	enc     Encoder
 	sub     map[string]subHandler
 	qsub    map[string]queueSubHandler
@@ -47,11 +49,12 @@ type Micro struct {
 
 func New(c *nats.Conn, enc Encoder) *Micro {
 	return &Micro{
-		c:    c,
-		mw:   []Handler{},
-		enc:  enc,
-		sub:  make(map[string]subHandler),
-		qsub: make(map[string]queueSubHandler),
+		c:       c,
+		mw:      []Handler{},
+		mwgroup: make(map[string][]Handler),
+		enc:     enc,
+		sub:     make(map[string]subHandler),
+		qsub:    make(map[string]queueSubHandler),
 	}
 }
 
@@ -59,22 +62,54 @@ func (m *Micro) Use(h Handler) {
 	m.mw = append(m.mw, h)
 }
 
+func (m *Micro) Group(prefix string, hs ...Handler) {
+	m.mwgroup[prefix] = hs
+}
+
 func (m *Micro) HandleError(h ErrorHandler) {
 	m.herr = h
 }
 
 func (m *Micro) Subscribe(subject string, hs ...Handler) {
+	var mwgroup []Handler
+	var handlers []Handler
+	for group, ghs := range m.mwgroup {
+		if strings.HasPrefix(subject, group) {
+			mwgroup = ghs
+		}
+	}
+	if mwgroup != nil {
+		handlers = joinMiddleware(m.mw, mwgroup)
+		handlers = joinMiddleware(handlers, hs)
+	} else {
+		handlers = joinMiddleware(m.mw, hs)
+	}
+
 	m.sub[subject] = subHandler{
 		subject:  subject,
-		handlers: joinMiddleware(m.mw, hs),
+		handlers: handlers,
 	}
 }
 
 func (m *Micro) QueueSubscribe(subject, group string, hs ...Handler) {
+	var mwgroup []Handler
+	var handlers []Handler
+	for group, ghs := range m.mwgroup {
+		if strings.HasPrefix(subject, group) {
+			mwgroup = ghs
+		}
+	}
+	if mwgroup != nil {
+		handlers = joinMiddleware(m.mw, mwgroup)
+		handlers = joinMiddleware(handlers, hs)
+	} else {
+		handlers = joinMiddleware(m.mw, hs)
+	}
+
 	m.qsub[subject] = queueSubHandler{
 		subject:  subject,
 		group:    group,
-		handlers: joinMiddleware(m.mw, hs),
+		handlers: handlers,
 	}
 }
 
