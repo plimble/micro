@@ -41,6 +41,9 @@ func (pb *ProtobufEncoder) Encode(v interface{}) ([]byte, error) {
 
 // Decode
 func (pb *ProtobufEncoder) Decode(data []byte, vPtr interface{}) error {
+	if data == nil || len(data) == 0 {
+		return nil
+	}
 	if _, ok := vPtr.(*interface{}); ok {
 		return nil
 	}

@@ -17,6 +17,10 @@ func (js *MsgPackEncoder) Encode(v msgp.Marshaler) ([]byte, error) {
 
 // Decode
 func (js *MsgPackEncoder) Decode(data []byte, vPtr msgp.Unmarshaler) error {
+	if data == nil || len(data) == 0 {
+		return nil
+	}
+
 	_, err := vPtr.UnmarshalMsg(data)
 	return err
 }
